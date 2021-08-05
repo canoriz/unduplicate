@@ -7,14 +7,6 @@ pub enum EigenOption {
     Fast(FastSamples),
 }
 
-/*
-impl EigenOption {
-    fn new() -> Self {
-        EigenOption::Fast(FastSamples::default())
-    }
-}
-*/
-
 #[derive(Eq, Debug, PartialEq)]
 pub struct FastSamples {
     samples: [u64; 32],
@@ -45,11 +37,33 @@ impl FeatureResult {
         match self {
             FeatureResult::Fast(arr) => {
                 for b in arr {
-                    write!(&mut res, "{:x}", b).expect("unable to write");
+                    write!(&mut res, "{:02x}", b).expect("unable to write");
                 }
             }
         }
         res
+    }
+}
+
+type FileGroup = u64;
+#[derive(PartialEq, Eq, Debug)]
+pub struct FileInfo {
+    path: String,
+    len: u64,
+    hash: FeatureResult,
+    belongs: FileGroup,
+}
+
+impl FileInfo {
+    pub fn new(path: String, belong: u64) -> Result<Self, io::Error> {
+        let mut f = fs::File::open(&path)?;
+
+        Ok(FileInfo {
+            path: path,
+            len: f.metadata()?.len(),
+            hash: calc(&mut f, EigenOption::Fast(FastSamples::default()))?,
+            belongs: belong,
+        })
     }
 }
 
@@ -61,13 +75,6 @@ pub fn calc(f: &mut fs::File, op: EigenOption) -> Result<FeatureResult, io::Erro
 
             let mut extractor = |f: &mut fs::File, sample_pos| -> Result<u8, io::Error> {
                 f.seek(io::SeekFrom::Start(len * sample_pos / cuts))?;
-                println!(
-                    "{}, {}, {}, sample from {}",
-                    len,
-                    cuts,
-                    sample_pos,
-                    len * sample_pos / cuts
-                );
                 f.read(bufchar)?;
                 Ok(bufchar[0])
             };

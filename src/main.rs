@@ -1,44 +1,32 @@
-use same_file::is_same_file;
-use std::fs::File;
-use std::io;
-
-mod file_feature;
-
-/*
-fn try_main() -> Result<(), io::Error> {
-    assert!(is_same_file("/tmp/rstest", "/tmp/rstest2")?);
-    Ok(())
-}
-
-fn main() {
-    // try_main().unwrap();
-    let result = file_feature::calc(
-        &mut File::open("Cargo.toml").unwrap(),
-        file_feature::EigenOption::Fast(file_feature::FastSamples::default()),
-    )
-    .unwrap();
-    println!("feature: {:?}", result);
-    println!("feature: {}", result.hex());
-}
-*/
+use std::env;
 
 use walkdir::WalkDir;
 
-fn main() {
-    for entry in WalkDir::new(".")
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|e| !e.file_type().is_dir())
-    {
-        let f_name = String::from(entry.path().to_string_lossy());
-        let f_meta = entry.metadata();
+mod grouper;
+use grouper::file_hash::{self, EigenOption, FastSamples};
+use grouper::FileList;
 
-        let result = file_feature::calc(
-            &mut File::open(f_name).unwrap(),
-            file_feature::EigenOption::Fast(file_feature::FastSamples::default()),
-            )
-            .unwrap();
-        println!("feature: {:?}", result);
-        println!("feature: {}", result.hex());
+fn main() {
+    let args: Vec<String> = env::args().skip(1).collect();
+
+    let mut list = FileList::new(EigenOption::Fast(FastSamples::default()));
+
+    for path in args {
+        for entry in WalkDir::new(path)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_type().is_file())
+            .filter(|e| e.metadata().is_ok())
+            .filter(|e| e.metadata().unwrap().len() > 0)
+        {
+            let f_name = String::from(entry.path().to_string_lossy());
+
+            match list.add(&f_name) {
+                Ok(_) => (),
+                Err(_) => continue,
+            }
+        }
     }
+
+    list.list_same_hash();
 }
