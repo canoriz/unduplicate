@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{Read, BufReader};
+use std::io::{BufReader, Read};
 
 fn same_files(f1: &mut File, f2: &mut File) -> bool {
     let mut buff1 = [0u8; 4096];

@@ -1,10 +1,11 @@
 use std::fmt::Write;
 use std::fs;
-use std::io::{self, Read, Seek};
+use std::io::{self, Read, Seek, BufReader};
 
 #[derive(Eq, Debug, PartialEq)]
 pub enum EigenOption {
     Fast(FastSamples),
+    Head512,
 }
 
 #[derive(Eq, Debug, PartialEq)]
@@ -29,6 +30,7 @@ impl Default for FastSamples {
 #[derive(Eq, Debug, PartialEq)]
 pub enum FeatureResult {
     Fast([u8; 32]),
+    Head512([u8, 64]),
 }
 
 impl FeatureResult {
@@ -72,16 +74,17 @@ pub fn calc(f: &mut fs::File, op: EigenOption) -> Result<FeatureResult, io::Erro
         EigenOption::Fast(FastSamples { samples, cuts }) => {
             let len = f.metadata()?.len();
             let bufchar = &mut [0u8; 1];
+            let reader = BufReader::new(f);
 
-            let mut extractor = |f: &mut fs::File, sample_pos| -> Result<u8, io::Error> {
-                f.seek(io::SeekFrom::Start(len * sample_pos / cuts))?;
-                f.read(bufchar)?;
+            let mut extractor = |reader: &mut BufReader, sample_pos| -> Result<u8, io::Error> {
+                reader.seek(io::SeekFrom::Start(len * sample_pos / cuts))?;
+                reader.read(bufchar)?;
                 Ok(bufchar[0])
             };
 
             let feature_vec = samples
                 .iter()
-                .map(|pos| extractor(f, pos))
+                .map(|pos| extractor(reader, pos))
                 .take(32)
                 .collect::<Vec<Result<u8, io::Error>>>();
             let mut result: [u8; 32] = [0; 32];
@@ -97,6 +100,17 @@ pub fn calc(f: &mut fs::File, op: EigenOption) -> Result<FeatureResult, io::Erro
             }
 
             Ok(FeatureResult::Fast(result))
+        }
+        EigenOption::Head512 => {
+            let mut reader = BufReader::new(f);
+            let mut buf = [0u8; 512];
+            match reader.read(&mut buf)? => {
+                512 => (),
+                n => for &mut b in buf.iter_mut().skip(n) {
+                    b = 0u8;
+                },
+            }
+            Ok(FeatureResult::Head512(buf))
         }
     }
 }

@@ -116,8 +116,31 @@ impl FileList {
     // pub fn compare_and_group(&self) -> Vec<Vec<FileRecord>> {
     pub fn compare_and_group(&self) -> Vec<Vec<FileInfo>> {
         let same_hash_files = self.sort_by_hash();
-        let group_merge = |file_group: &mut Vec<FileRecord>| {
+
+        println!("sort by hash ok");
+
+        let split = |file_group: &mut Vec<FileRecord>| {
             let mut merger = Merger::new(file_group.len());
+            /*
+            file_group
+                .iter()
+                .enumerate()
+                .filter(|(index1, file1)| merger.belongs(file1.id) == file1.id)
+                .map(|(index1, file1)| {
+                    file_group
+                        .iter()
+                        .skip(index1 + 1)
+                        .filter(|file2| merger.belongs(file2.id) == file2.id)
+                        .map(|file2| {
+                            if same(&file1.info.path, &file2.info.path) {
+                                merger.merge(file1.id, file2.id);
+                            }
+                        })
+                        .collect::<()>();
+                })
+                .collect::<()>();
+            */
+
             for (index1, file1) in file_group.iter().enumerate() {
                 if merger.belongs(file1.id) != file1.id {
                     // file1 is same with previous file, skip it
@@ -126,10 +149,15 @@ impl FileList {
                 // file1 is not same with any previous file
                 // see if any file same with file1
                 for file2 in file_group.iter().skip(index1 + 1) {
-                    // file2 is not same with any previous file
-                    if same(&file2.info.path, &file1.info.path) {
-                        // merges two sub sets
-                        merger.merge(file1.id, file2.id);
+                    if merger.belongs(file2.id) == file2.id {
+                        // file2 is unique file
+
+                        println!("compare {}, {}", &file1.info.path, &file2.info.path);
+
+                        if same(&file2.info.path, &file1.info.path) {
+                            // merges two sub sets
+                            merger.merge(file1.id, file2.id);
+                        }
                     }
                 }
             }
@@ -154,14 +182,12 @@ impl FileList {
             output_list
         };
 
-        let mut same_files = Vec::<Vec<FileInfo>>::new();
-        for mut file_group in same_hash_files {
-            if file_group.len() > 1 {
-                same_files.append(&mut group_merge(&mut file_group));
-            }
-        }
-
-        same_files
+        same_hash_files
+            .into_iter()
+            .filter(|file_group| file_group.len() > 1)
+            .map(|mut file_group| split(&mut file_group))
+            .flatten()
+            .collect()
     }
 
     pub fn list_same_files(&self) {

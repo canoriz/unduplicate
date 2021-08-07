@@ -9,8 +9,8 @@ use grouper::FileList;
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
 
-    let mut list = FileList::new(EigenOption::Fast(FastSamples::default()));
-    // let mut list = FileList::new(EigenOption::Head);
+    // let mut list = FileList::new(EigenOption::Fast(FastSamples::default()));
+    let mut list = FileList::new(EigenOption::Head);
 
     for path in args {
         for entry in WalkDir::new(path)
@@ -29,6 +29,6 @@ fn main() {
         }
     }
 
-    list.compare_and_group();
+    // list.compare_and_group();
     list.list_same_files();
 }

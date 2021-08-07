@@ -1,6 +1,6 @@
 use std::fmt::Write;
 use std::fs;
-use std::io::{self, Read, Seek};
+use std::io::{self, BufReader, Read, Seek};
 
 #[derive(Eq, Debug, PartialEq, Copy, Clone)]
 pub enum EigenOption {
@@ -30,7 +30,7 @@ impl Default for FastSamples {
 #[derive(Eq, Debug, PartialEq, Ord, PartialOrd, Copy, Clone)]
 pub enum HashResult {
     Fast([u8; 32]),
-    Head([u8; 32]),
+    Head([u8; 64]),
 }
 
 impl HashResult {
@@ -63,6 +63,8 @@ impl FileInfo {
     pub fn new(path: &str, e: EigenOption) -> Result<Self, io::Error> {
         let mut f = fs::File::open(path)?;
 
+        println!("building hash for {}", path);
+
         Ok(FileInfo {
             path: path.to_string(),
             len: f.metadata()?.len(),
@@ -74,15 +76,20 @@ impl FileInfo {
         match op {
             EigenOption::Fast(FastSamples { samples, cuts }) => {
                 let len = f.metadata()?.len();
+                let mut reader = BufReader::new(f);
                 let bufchar = &mut [0u8; 1];
 
-                let mut extractor = |f: &mut fs::File, sample_pos| -> Result<u8, io::Error> {
-                    f.seek(io::SeekFrom::Start(len * sample_pos / cuts))?;
-                    f.read_exact(bufchar)?;
-                    Ok(bufchar[0])
-                };
+                let mut extractor =
+                    |reader: &mut BufReader<&mut fs::File>, sample_pos| -> Result<u8, io::Error> {
+                        reader.seek(io::SeekFrom::Start(len * sample_pos / cuts))?;
+                        reader.read_exact(bufchar)?;
+                        Ok(bufchar[0])
+                    };
 
-                let feature_vec = samples.iter().map(|pos| extractor(f, pos)).take(32);
+                let feature_vec = samples
+                    .iter()
+                    .map(|pos| extractor(&mut reader, pos))
+                    .take(32);
                 let mut result: [u8; 32] = [0; 32];
 
                 // convert vec to array
@@ -96,10 +103,11 @@ impl FileInfo {
                 Ok(HashResult::Fast(result))
             }
             EigenOption::Head => {
-                let mut result = [0u8; 32];
+                let mut result = [0u8; 64];
+                let mut reader = BufReader::new(f);
 
-                match f.read(&mut result)? {
-                    32 => (),
+                match reader.read(&mut result)? {
+                    64 => (),
                     x => {
                         for b in result.iter_mut().skip(x) {
                             *b = 0u8;
