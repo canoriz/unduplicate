@@ -2,8 +2,8 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 
 fn same_files(f1: &mut File, f2: &mut File) -> bool {
-    let mut buff1 = [0u8; 4096];
-    let mut buff2 = [0u8; 4096];
+    let mut buff1 = [0u8; 8192];
+    let mut buff2 = [0u8; 8192];
     let mut reader1 = BufReader::new(f1);
     let mut reader2 = BufReader::new(f2);
 

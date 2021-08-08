@@ -3,7 +3,7 @@ use std::io;
 use std::vec::Vec;
 
 pub mod file_hash;
-use file_hash::{EigenOption, FileInfo};
+use file_hash::{EigenOption, FastSamples, FileInfo};
 
 mod file_diff;
 use file_diff::same;
@@ -41,7 +41,7 @@ impl Merger {
 }
 
 type FileId = usize;
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct FileRecord {
     info: FileInfo,
     id: FileId,
@@ -58,15 +58,13 @@ impl FileRecord {
 
 #[derive(Debug)]
 pub struct FileList {
-    hash_option: EigenOption,
-    files: Vec<FileInfo>,
+    files: Vec<Vec<FileRecord>>,
 }
 
 impl FileList {
-    pub fn new(h: EigenOption) -> Self {
+    pub fn new() -> Self {
         FileList {
-            hash_option: h,
-            files: Vec::<FileInfo>::new(),
+            files: Vec::<Vec<FileRecord>>::new(),
         }
     }
 
@@ -75,71 +73,86 @@ impl FileList {
     }
 
     pub fn add(&mut self, name: &str) -> Result<(), io::Error> {
-        self.files.push(FileInfo::new(name, self.hash_option)?);
+        if self.files.is_empty() {
+            self.files.push(Vec::<FileRecord>::new());
+        }
+        let current_id = self.files[0].len();
+        self.files[0].push(FileRecord::new(FileInfo::new(name)?, current_id));
         Ok(())
     }
 
-    fn sort_by_hash(&self) -> Vec<Vec<FileRecord>> {
-        // comparer, first by len, then by hash
-        let comparer = |a: &FileInfo, other: &FileInfo| match a.len.cmp(&other.len) {
-            Ordering::Equal => a.hash.cmp(&other.hash),
-            _ => a.len.cmp(&other.len),
-        };
-
-        let mut sorted = self.files.clone();
-        sorted.sort_by(comparer);
-
-        let mut same_hash_files = Vec::<Vec<FileRecord>>::new();
-        let mut prev_file: Option<FileInfo> = None;
-
-        let mut ingroup_id = 0;
-        for file in sorted {
-            let same_hash_and_len = |prev: &Option<FileInfo>, current: &FileInfo| match prev {
-                None => false,
-                Some(p) => p.hash == current.hash && p.len == current.len,
-            };
-
-            if !same_hash_and_len(&prev_file, &file) {
-                ingroup_id = 0;
-                prev_file = Some(file.clone());
-                same_hash_files.push(Vec::<FileRecord>::new());
-            }
-            same_hash_files
-                .last_mut()
-                .unwrap()
-                .push(FileRecord::new(file, ingroup_id));
-            ingroup_id += 1;
+    fn remove_unique(self) -> Self {
+        FileList {
+            files: self
+                .files
+                .into_iter()
+                .filter(|group| group.len() > 1)
+                .collect(),
         }
-        same_hash_files
     }
 
-    // pub fn compare_and_group(&self) -> Vec<Vec<FileRecord>> {
-    pub fn compare_and_group(&self) -> Vec<Vec<FileInfo>> {
-        let same_hash_files = self.sort_by_hash();
+    fn make_hash(mut self, hash_option: EigenOption) -> Self {
+        for file_group in self.files.iter_mut() {
+            for file in file_group {
+                file.info.calc_hash(hash_option);
+                /*
+                if hash_option == EigenOption::Length {
+                    println!("{:?}", file.info.hash);
+                }
+                */
+                // println!("process hash {:?} on {}", hash_option, file.info.path);
+            }
+        }
+        FileList { files: self.files }
+    }
 
-        println!("sort by hash ok");
+    pub fn split_by_hash(self, hash_option: EigenOption) -> Self {
+        let split = |mut file_group: Vec<FileRecord>| {
+            file_group
+                .sort_by(|a: &FileRecord, other: &FileRecord| a.info.hash.cmp(&other.info.hash));
+            let sorted = file_group.iter().map(|record| record.info.clone());
+            let mut same_hash_files = Vec::<Vec<FileRecord>>::new();
+            let mut prev_file: Option<FileInfo> = None;
 
+            let mut ingroup_id = 0;
+            for file in sorted {
+                let same_hash = |prev: &Option<FileInfo>, current: &FileInfo| match prev {
+                    None => false,
+                    Some(p) => p.hash == current.hash,
+                };
+
+                if !same_hash(&prev_file, &file) {
+                    ingroup_id = 0;
+                    prev_file = Some(file.clone());
+                    same_hash_files.push(Vec::<FileRecord>::new());
+                }
+                same_hash_files
+                    .last_mut()
+                    .unwrap()
+                    .push(FileRecord::new(file, ingroup_id));
+                ingroup_id += 1;
+            }
+            same_hash_files
+        };
+
+        println!("split using hash {:?}", hash_option);
+        println!("before: {} group {} candidates", self.files.len(), self.files.iter().map(|s| s.len()).sum::<usize>());
+        let hashed = self.make_hash(hash_option);
+
+        FileList {
+            files: hashed
+                .files
+                .into_iter()
+                .filter(|file_group| file_group.len() > 1)
+                .map(split)
+                .flatten()
+                .collect(),
+        }.remove_unique()
+    }
+
+    pub fn bitwise_compare(&self) -> Vec<Vec<FileRecord>> {
         let split = |file_group: &mut Vec<FileRecord>| {
             let mut merger = Merger::new(file_group.len());
-            /*
-            file_group
-                .iter()
-                .enumerate()
-                .filter(|(index1, file1)| merger.belongs(file1.id) == file1.id)
-                .map(|(index1, file1)| {
-                    file_group
-                        .iter()
-                        .skip(index1 + 1)
-                        .filter(|file2| merger.belongs(file2.id) == file2.id)
-                        .map(|file2| {
-                            if same(&file1.info.path, &file2.info.path) {
-                                merger.merge(file1.id, file2.id);
-                            }
-                        })
-                        .collect::<()>();
-                })
-                .collect::<()>();
-            */
 
             for (index1, file1) in file_group.iter().enumerate() {
                 if merger.belongs(file1.id) != file1.id {
@@ -152,8 +165,6 @@ impl FileList {
                     if merger.belongs(file2.id) == file2.id {
                         // file2 is unique file
 
-                        println!("compare {}, {}", &file1.info.path, &file2.info.path);
-
                         if same(&file2.info.path, &file1.info.path) {
                             // merges two sub sets
                             merger.merge(file1.id, file2.id);
@@ -163,25 +174,32 @@ impl FileList {
             }
 
             // group files to list
-            let mut output_list = Vec::<Vec<FileInfo>>::new();
+            let mut output_list = Vec::<Vec<FileRecord>>::new();
             file_group.sort_by_key(|x| merger.belongs(x.id));
             let mut prev_id: Option<usize> = None;
             for file in file_group {
                 match prev_id {
                     Some(grp) => {
                         if grp != merger.belongs(file.id) {
-                            output_list.push(Vec::<FileInfo>::new())
+                            output_list.push(Vec::<FileRecord>::new())
                         }
                     }
-                    None => output_list.push(Vec::<FileInfo>::new()),
+                    None => output_list.push(Vec::<FileRecord>::new()),
                 }
-                output_list.last_mut().unwrap().push(file.info.clone());
+                let current_id = output_list.last_mut().unwrap().len();
+                output_list
+                    .last_mut()
+                    .unwrap()
+                    .push(FileRecord::new(file.info.clone(), current_id));
                 prev_id = Some(merger.belongs(file.id));
             }
 
             output_list
         };
 
+        println!("bitwise compare");
+
+        let same_hash_files = self.files.clone();
         same_hash_files
             .into_iter()
             .filter(|file_group| file_group.len() > 1)
@@ -190,14 +208,18 @@ impl FileList {
             .collect()
     }
 
-    pub fn list_same_files(&self) {
-        let grouped = self.compare_and_group();
+    pub fn list_same_files(self) {
+        let grouped = self
+            .split_by_hash(EigenOption::Length)
+            .split_by_hash(EigenOption::Head)
+            .split_by_hash(EigenOption::Fast(FastSamples::default()))
+            .bitwise_compare();
 
         for same_file_group in grouped {
             if same_file_group.len() > 1 {
                 println!();
-                for file_info in same_file_group {
-                    println!("{}", file_info.path);
+                for file_record in same_file_group {
+                    println!("{}", file_record.info.path);
                 }
             }
         }
