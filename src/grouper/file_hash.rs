@@ -5,7 +5,7 @@ use std::io::{self, BufReader, Read, Seek};
 #[derive(Eq, Debug, PartialEq, Copy, Clone)]
 pub enum EigenOption {
     Fast(FastSamples),
-    Head,
+    Head(u32),
     Length,
 }
 
@@ -32,7 +32,7 @@ impl Default for FastSamples {
 pub enum HashResult {
     Empty,
     Fast([u8; 32]),
-    Head([u8; 64]),
+    Head([u8; 128]),
     Length(u64),
 }
 
@@ -111,16 +111,22 @@ impl FileInfo {
                 self.hash = HashResult::Fast(result);
                 Ok(self.hash)
             }
-            EigenOption::Head => {
-                let mut result = [0u8; 64];
+            EigenOption::Head(round) => {
+                let mut buffer = [0u8; 128];
+                let mut result = [0u8; 128];
                 let mut reader = BufReader::new(f);
 
-                match reader.read(&mut result)? {
-                    64 => (),
-                    x => {
-                        for b in result.iter_mut().skip(x) {
-                            *b = 0u8;
+                for i in 0..round {
+                    match reader.read(&mut buffer)? {
+                        128 => (),
+                        x => {
+                            for b in result.iter_mut().skip(x) {
+                                *b = 0u8;
+                            }
                         }
+                    }
+                    for j in 0..128 {
+                        result[j] = result[j] ^ buffer[j];
                     }
                 }
                 self.hash = HashResult::Head(result);

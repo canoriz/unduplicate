@@ -136,7 +136,11 @@ impl FileList {
         };
 
         println!("split using hash {:?}", hash_option);
-        println!("before: {} group {} candidates", self.files.len(), self.files.iter().map(|s| s.len()).sum::<usize>());
+        println!(
+            "before: {} group {} candidates",
+            self.files.len(),
+            self.files.iter().map(|s| s.len()).sum::<usize>()
+        );
         let hashed = self.make_hash(hash_option);
 
         FileList {
@@ -147,7 +151,8 @@ impl FileList {
                 .map(split)
                 .flatten()
                 .collect(),
-        }.remove_unique()
+        }
+        .remove_unique()
     }
 
     pub fn bitwise_compare(&self) -> Vec<Vec<FileRecord>> {
@@ -198,6 +203,11 @@ impl FileList {
         };
 
         println!("bitwise compare");
+        println!(
+            "before: {} group {} candidates",
+            self.files.len(),
+            self.files.iter().map(|s| s.len()).sum::<usize>()
+        );
 
         let same_hash_files = self.files.clone();
         same_hash_files
@@ -211,7 +221,11 @@ impl FileList {
     pub fn list_same_files(self) {
         let grouped = self
             .split_by_hash(EigenOption::Length)
-            .split_by_hash(EigenOption::Head)
+            .split_by_hash(EigenOption::Head(1))
+            .split_by_hash(EigenOption::Head(4))
+            .split_by_hash(EigenOption::Head(16))
+            .split_by_hash(EigenOption::Head(64))
+            .split_by_hash(EigenOption::Head(256))
             .split_by_hash(EigenOption::Fast(FastSamples::default()))
             .bitwise_compare();
 
