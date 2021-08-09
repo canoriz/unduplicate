@@ -3,13 +3,12 @@ use std::env;
 use walkdir::WalkDir;
 
 mod grouper;
-use grouper::file_hash::{self, EigenOption, FastSamples};
+use grouper::file_hash::{HashOption, FastSamples};
 use grouper::FileList;
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
 
-    // let mut list = FileList::new(EigenOption::Fast(FastSamples::default()));
     let mut list = FileList::new();
 
     for path in args {
@@ -29,6 +28,14 @@ fn main() {
         }
     }
 
-    // list.compare_and_group();
-    list.list_same_files();
+    list
+        .split_by_hash(HashOption::Length)
+        .split_by_hash(HashOption::Head(1))
+        .split_by_hash(HashOption::Head(4))
+        .split_by_hash(HashOption::Head(16))
+        .split_by_hash(HashOption::Head(64))
+        .split_by_hash(HashOption::Head(256))
+        .split_by_hash(HashOption::Fast(FastSamples::default()))
+        .bitwise_compare()
+        .print_results();
 }

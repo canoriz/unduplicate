@@ -3,7 +3,7 @@ use std::fs;
 use std::io::{self, BufReader, Read, Seek};
 
 #[derive(Eq, Debug, PartialEq, Copy, Clone)]
-pub enum EigenOption {
+pub enum HashOption {
     Fast(FastSamples),
     Head(u32),
     Length,
@@ -79,10 +79,10 @@ impl FileInfo {
         })
     }
 
-    pub fn calc_hash(&mut self, op: EigenOption) -> Result<HashResult, io::Error> {
+    pub fn calc_hash(&mut self, op: HashOption) -> Result<HashResult, io::Error> {
         let mut f = fs::File::open(&self.path)?;
         match op {
-            EigenOption::Fast(FastSamples { samples, cuts }) => {
+            HashOption::Fast(FastSamples { samples, cuts }) => {
                 let len = f.metadata()?.len();
                 let mut reader = BufReader::new(&mut f);
                 let bufchar = &mut [0u8; 1];
@@ -111,28 +111,22 @@ impl FileInfo {
                 self.hash = HashResult::Fast(result);
                 Ok(self.hash)
             }
-            EigenOption::Head(round) => {
+            HashOption::Head(round) => {
                 let mut buffer = [0u8; 128];
                 let mut result = [0u8; 128];
                 let mut reader = BufReader::new(f);
 
-                for i in 0..round {
+                for _ in 0..round {
                     match reader.read(&mut buffer)? {
                         128 => (),
-                        x => {
-                            for b in result.iter_mut().skip(x) {
-                                *b = 0u8;
-                            }
-                        }
+                        x => result.iter_mut().skip(x).for_each(|b| *b = 0u8),
                     }
-                    for j in 0..128 {
-                        result[j] = result[j] ^ buffer[j];
-                    }
+                    (0..128).for_each(|j| result[j] ^= buffer[j]);
                 }
                 self.hash = HashResult::Head(result);
                 Ok(self.hash)
             }
-            EigenOption::Length => {
+            HashOption::Length => {
                 self.hash = HashResult::Length(self.len);
                 Ok(self.hash)
             }
