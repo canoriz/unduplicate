@@ -3,7 +3,7 @@ use std::env;
 use walkdir::WalkDir;
 
 mod grouper;
-use grouper::file_hash::{HashOption, FastSamples};
+use grouper::file_hash::{FastSamples, HashOption};
 use grouper::FileList;
 
 fn main() {
@@ -28,8 +28,7 @@ fn main() {
         }
     }
 
-    list
-        .split_by_hash(HashOption::Length)
+    list.split_by_hash(HashOption::Length)
         .split_by_hash(HashOption::Head(1))
         .split_by_hash(HashOption::Head(4))
         .split_by_hash(HashOption::Head(16))

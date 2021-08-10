@@ -1,8 +1,10 @@
+use rayon::prelude::*;
 use std::io;
+use std::sync::{Arc, Mutex};
 use std::vec::Vec;
 
 pub mod file_hash;
-use file_hash::{HashOption, FileInfo};
+use file_hash::{FileInfo, HashOption};
 
 mod file_diff;
 use file_diff::same;
@@ -87,11 +89,11 @@ impl FileList {
     }
 
     fn make_hash(mut self, hash_option: HashOption) -> Self {
-        for file_group in self.files.iter_mut() {
-            for file in file_group {
+        self.files.par_iter_mut().for_each(|file_group| {
+            file_group.par_iter_mut().for_each(|file| {
                 file.info.calc_hash(hash_option);
-            }
-        }
+            })
+        });
         FileList { files: self.files }
     }
 
@@ -151,15 +153,16 @@ impl FileList {
 
     pub fn bitwise_compare(self) -> Self {
         let split = |file_group: &mut Vec<FileRecord>| {
-            let mut merger = Merger::new(file_group.len());
+            let mut merger = Arc::new(Mutex::new(Merger::new(file_group.len())));
 
             for (index1, file1) in file_group.iter().enumerate() {
-                if merger.belongs(file1.id) != file1.id {
+                if merger.lock().unwrap().belongs(file1.id) != file1.id {
                     // file1 is same with previous file, skip it
                     continue;
                 }
                 // file1 is not same with any previous file
                 // see if any file same with file1
+                /*
                 for file2 in file_group.iter().skip(index1 + 1) {
                     if merger.belongs(file2.id) == file2.id {
                         // file2 is unique file
@@ -170,16 +173,27 @@ impl FileList {
                         }
                     }
                 }
+                */
+                file_group.iter().skip(index1 + 1).for_each(|file2| {
+                    if merger.lock().unwrap().belongs(file2.id) == file2.id {
+                        // file2 is unique file
+
+                        if same(&file2.info.path, &file1.info.path) {
+                            // merges two sub sets
+                            merger.lock().unwrap().merge(file1.id, file2.id);
+                        }
+                    }
+                });
             }
 
             // group files to list
             let mut output_list = Vec::<Vec<FileRecord>>::new();
-            file_group.sort_by_key(|x| merger.belongs(x.id));
+            file_group.sort_by_key(|x| merger.lock().unwrap().belongs(x.id));
             let mut prev_id: Option<usize> = None;
             for file in file_group {
                 match prev_id {
                     Some(grp) => {
-                        if grp != merger.belongs(file.id) {
+                        if grp != merger.lock().unwrap().belongs(file.id) {
                             output_list.push(Vec::<FileRecord>::new())
                         }
                     }
@@ -190,7 +204,7 @@ impl FileList {
                     .last_mut()
                     .unwrap()
                     .push(FileRecord::new(file.info.clone(), current_id));
-                prev_id = Some(merger.belongs(file.id));
+                prev_id = Some(merger.lock().unwrap().belongs(file.id));
             }
 
             output_list
@@ -204,12 +218,14 @@ impl FileList {
         );
 
         FileList {
-            files: self.files
-            .into_iter()
-            .map(|mut file_group| split(&mut file_group))
-            .flatten()
-            .collect(),
-        }.remove_unique()
+            files: self
+                .files
+                .into_iter()
+                .map(|mut file_group| split(&mut file_group))
+                .flatten()
+                .collect(),
+        }
+        .remove_unique()
     }
 
     pub fn print_results(&self) {
