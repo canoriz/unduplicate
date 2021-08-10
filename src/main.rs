@@ -28,7 +28,8 @@ fn main() {
         }
     }
 
-    list.split_by_hash(HashOption::Length)
+    list.sort_by_path()
+        .split_by_hash(HashOption::Length)
         .split_by_hash(HashOption::Head(1))
         .split_by_hash(HashOption::Head(4))
         .split_by_hash(HashOption::Head(16))

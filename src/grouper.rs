@@ -88,6 +88,17 @@ impl FileList {
         }
     }
 
+    pub fn sort_by_path(mut self) -> Self {
+        self.files.iter_mut().for_each(|file_group| {
+            file_group.sort_by(|a: &FileRecord, b: &FileRecord| a.info.path.cmp(&b.info.path))
+        });
+        self.files
+            .sort_by(|a: &Vec<FileRecord>, b: &Vec<FileRecord>| {
+                a[0].info.path.cmp(&b[0].info.path)
+            });
+        self
+    }
+
     fn make_hash(mut self, hash_option: HashOption) -> Self {
         self.files.par_iter_mut().for_each(|file_group| {
             file_group.par_iter_mut().for_each(|file| {
@@ -153,7 +164,7 @@ impl FileList {
 
     pub fn bitwise_compare(self) -> Self {
         let split = |file_group: &mut Vec<FileRecord>| {
-            let mut merger = Arc::new(Mutex::new(Merger::new(file_group.len())));
+            let merger = Arc::new(Mutex::new(Merger::new(file_group.len())));
 
             for (index1, file1) in file_group.iter().enumerate() {
                 if merger.lock().unwrap().belongs(file1.id) != file1.id {
@@ -162,18 +173,6 @@ impl FileList {
                 }
                 // file1 is not same with any previous file
                 // see if any file same with file1
-                /*
-                for file2 in file_group.iter().skip(index1 + 1) {
-                    if merger.belongs(file2.id) == file2.id {
-                        // file2 is unique file
-
-                        if same(&file2.info.path, &file1.info.path) {
-                            // merges two sub sets
-                            merger.merge(file1.id, file2.id);
-                        }
-                    }
-                }
-                */
                 file_group.iter().skip(index1 + 1).for_each(|file2| {
                     if merger.lock().unwrap().belongs(file2.id) == file2.id {
                         // file2 is unique file
