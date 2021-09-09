@@ -32,10 +32,11 @@ fn main() {
         .split_by_hash(HashOption::Length)
         .split_by_hash(HashOption::Head(1))
         .split_by_hash(HashOption::Head(4))
-        .split_by_hash(HashOption::Head(16))
+        //.split_by_hash(HashOption::Head(16))
         .split_by_hash(HashOption::Head(64))
-        .split_by_hash(HashOption::Head(256))
+        //.split_by_hash(HashOption::Head(256))
+        .split_by_hash(HashOption::Fnv(256))
         .split_by_hash(HashOption::Fast(FastSamples::default()))
-        .bitwise_compare()
-        .print_results();
+        .bitwise_compare();
+        //.print_results();
 }

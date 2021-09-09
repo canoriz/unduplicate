@@ -1,11 +1,14 @@
 use std::fmt::Write;
 use std::fs;
+use std::hash::Hasher;
 use std::io::{self, BufReader, Read, Seek};
+use fnv::FnvHasher;
 
 #[derive(Eq, Debug, PartialEq, Copy, Clone)]
 pub enum HashOption {
     Fast(FastSamples),
     Head(u32),
+    Fnv(u32),
     Length,
 }
 
@@ -33,6 +36,7 @@ pub enum HashResult {
     Empty,
     Fast([u8; 32]),
     Head([u8; 128]),
+    Fnv(u64),
     Length(u64),
 }
 
@@ -52,6 +56,9 @@ impl HashResult {
                 for b in arr {
                     write!(&mut res, "{:02x}", b).expect("unable to write");
                 }
+            }
+            HashResult::Fnv(result) => {
+                write!(&mut res, "{:02x}", result).expect("unable to write");
             }
             HashResult::Length(len) => {
                 write!(&mut res, "{}", len).expect("unable to wrte");
@@ -119,11 +126,26 @@ impl FileInfo {
                 for _ in 0..round {
                     match reader.read(&mut buffer)? {
                         128 => (),
-                        x => result.iter_mut().skip(x).for_each(|b| *b = 0u8),
+                        x => buffer.iter_mut().skip(x).for_each(|b| *b = 0u8),
                     }
                     (0..128).for_each(|j| result[j] ^= buffer[j]);
                 }
                 self.hash = HashResult::Head(result);
+                Ok(self.hash)
+            }
+            HashOption::Fnv(round) => {
+                let mut buffer = [0u8; 128];
+                let mut fnv_hasher = FnvHasher::default();
+                let mut reader = BufReader::new(f);
+
+                for _ in 0..round {
+                    match reader.read(&mut buffer)? {
+                        128 => (),
+                        x => buffer.iter_mut().skip(x).for_each(|b| *b = 0u8),
+                    }
+                    fnv_hasher.write(&buffer);
+                }
+                self.hash = HashResult::Fnv(fnv_hasher.finish());
                 Ok(self.hash)
             }
             HashOption::Length => {
