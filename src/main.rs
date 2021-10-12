@@ -37,6 +37,6 @@ fn main() {
         //.split_by_hash(HashOption::Head(256))
         .split_by_hash(HashOption::Fnv(256))
         .split_by_hash(HashOption::Fast(FastSamples::default()))
-        .bitwise_compare();
-        //.print_results();
+        .bitwise_compare()
+        .print_results();
 }
