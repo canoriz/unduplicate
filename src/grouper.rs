@@ -58,13 +58,13 @@ pub struct FileList {
     files: Vec<Vec<FileRecord>>,
 }
 
-fn human_size(mut size: u64) -> String {
+fn human_size(mut size: f32) -> String {
     let units = vec!["B", "KiB", "MiB", "GiB", "TiB"];
     for (_, unit) in units.iter().enumerate().filter(|(idx, _)| *idx < 4) {
-        if size < 1024 {
-            return format!("{} {}", size, unit);
+        if size < 1024.0 {
+            return format!("{:.3} {}", size, unit);
         }
-        size /= 1024;
+        size /= 1024.0;
     }
     return format!("{} {}", size, units[4]);
 }
@@ -249,7 +249,7 @@ impl FileList {
                     self.files
                         .iter()
                         .map(|s| s.iter().skip(1).map(|f| f.info.len).sum::<u64>())
-                        .sum::<u64>()
+                        .sum::<u64>() as f32
                 )
             );
         }
