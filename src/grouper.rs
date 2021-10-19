@@ -58,6 +58,17 @@ pub struct FileList {
     files: Vec<Vec<FileRecord>>,
 }
 
+fn human_size(mut size: u64) -> String {
+    let units = vec!["B", "KiB", "MiB", "GiB", "TiB"];
+    for (_, unit) in units.iter().enumerate().filter(|(idx, _)| *idx < 4) {
+        if size < 1024 {
+            return format!("{} {}", size, unit);
+        }
+        size /= 1024;
+    }
+    return format!("{} {}", size, units[4]);
+}
+
 impl FileList {
     pub fn new() -> Self {
         FileList {
@@ -229,11 +240,17 @@ impl FileList {
 
     pub fn print_info(self, info_flag: bool, method: &str) -> Self {
         if info_flag {
-            println!("Grouping using {:?}", method);
+            println!("Grouping using [{}]", method);
             println!(
-                "  {} group {} candidates",
+                "  {} group {} candidates takes {} ",
                 self.files.len(),
-                self.files.iter().map(|s| s.len()).sum::<usize>()
+                self.files.iter().map(|s| s.len()).sum::<usize>(),
+                human_size(
+                    self.files
+                        .iter()
+                        .map(|s| s.iter().skip(1).map(|f| f.info.len).sum::<u64>())
+                        .sum::<u64>()
+                )
             );
         }
         self

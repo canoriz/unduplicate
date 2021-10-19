@@ -1,8 +1,8 @@
+use fnv::FnvHasher;
 use std::fmt::Write;
 use std::fs;
 use std::hash::Hasher;
 use std::io::{self, BufReader, Read, Seek};
-use fnv::FnvHasher;
 
 #[derive(Eq, Debug, PartialEq, Copy, Clone)]
 pub enum HashOption {

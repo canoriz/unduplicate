@@ -1,7 +1,7 @@
 use std::env;
 
-use walkdir::WalkDir;
 use clap::{App, Arg};
+use walkdir::WalkDir;
 
 mod grouper;
 use grouper::file_hash::{FastSamples, HashOption};
@@ -20,21 +20,25 @@ fn main() {
         .version("0.1")
         .author("yhc")
         .about("Find duplicate files")
-        .arg(Arg::with_name("list")
-             .short("l")
-             .long("list")
-             .help("List duplicate files"))
-        .arg(Arg::with_name("delete")
-             .short("d")
-             .long("delete")
-             .help("Auto delete duplicate files"))
-        .arg(Arg::with_name("info")
-             .short("i")
-             .long("info")
-             .help("Print grouping infomation"))
-        .arg(Arg::with_name("dirs")
-             .help("Directories")
-             .multiple(true))
+        .arg(
+            Arg::with_name("list")
+                .short("l")
+                .long("list")
+                .help("List duplicate files"),
+        )
+        .arg(
+            Arg::with_name("delete")
+                .short("d")
+                .long("delete")
+                .help("Auto delete duplicate files"),
+        )
+        .arg(
+            Arg::with_name("info")
+                .short("i")
+                .long("info")
+                .help("Print grouping infomation"),
+        )
+        .arg(Arg::with_name("dirs").help("Directories").multiple(true))
         .get_matches();
 
     let mut flags = Flags::default();
