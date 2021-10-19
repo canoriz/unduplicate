@@ -1,17 +1,73 @@
 use std::env;
 
 use walkdir::WalkDir;
+use clap::{App, Arg};
 
 mod grouper;
 use grouper::file_hash::{FastSamples, HashOption};
 use grouper::FileList;
 
+// flag options
+#[derive(Default, Debug)]
+struct Flags {
+    delete: bool,
+    list: bool,
+    info: bool,
+}
+
 fn main() {
-    let args: Vec<String> = env::args().skip(1).collect();
+    let matches = App::new("unduplicate")
+        .version("0.1")
+        .author("yhc")
+        .about("Find duplicate files")
+        .arg(Arg::with_name("list")
+             .short("l")
+             .long("list")
+             .help("List duplicate files"))
+        .arg(Arg::with_name("delete")
+             .short("d")
+             .long("delete")
+             .help("Auto delete duplicate files"))
+        .arg(Arg::with_name("info")
+             .short("i")
+             .long("info")
+             .help("Print grouping infomation"))
+        .arg(Arg::with_name("dirs")
+             .help("Directories")
+             .multiple(true))
+        .get_matches();
+
+    let mut flags = Flags::default();
+    let dir_list: Vec<_>;
+
+    if matches.is_present("delete") {
+        println!("delete!");
+        flags.delete = true;
+    }
+
+    if matches.is_present("list") {
+        println!("list!");
+        flags.list = true;
+    }
+
+    if matches.is_present("info") {
+        println!("info!");
+        flags.info = true;
+    }
+
+    println!("{:?}", flags);
+
+    if let Some(dirs) = matches.values_of("dirs") {
+        dir_list = dirs.collect();
+    } else {
+        dir_list = vec!["./"];
+    }
+
+    //let args: Vec<String> = env::args().skip(1).collect();
 
     let mut list = FileList::new();
 
-    for path in args {
+    for path in dir_list {
         for entry in WalkDir::new(path)
             .into_iter()
             .filter_map(Result::ok)
@@ -29,14 +85,20 @@ fn main() {
     }
 
     list.sort_by_path()
+        .print_info(flags.info, "none")
         .split_by_hash(HashOption::Length)
-        .split_by_hash(HashOption::Head(1))
+        .print_info(flags.info, "length")
+        //.split_by_hash(HashOption::Head(1))
         .split_by_hash(HashOption::Head(4))
+        .print_info(flags.info, "head 4*128 bytes")
         //.split_by_hash(HashOption::Head(16))
-        .split_by_hash(HashOption::Head(64))
+        //.split_by_hash(HashOption::Head(64))
         //.split_by_hash(HashOption::Head(256))
-        .split_by_hash(HashOption::Fnv(256))
         .split_by_hash(HashOption::Fast(FastSamples::default()))
+        .print_info(flags.info, "eigen points")
+        .split_by_hash(HashOption::Fnv(64))
+        .print_info(flags.info, "fnv hash 64*128 bytes")
         .bitwise_compare()
-        .print_results();
+        .print_info(flags.info, "bitwise")
+        .print_results(flags.list);
 }

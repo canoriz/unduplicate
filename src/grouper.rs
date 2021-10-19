@@ -142,12 +142,6 @@ impl FileList {
             same_hash_files
         };
 
-        println!("split using hash {:?}", hash_option);
-        println!(
-            "before: {} group {} candidates",
-            self.files.len(),
-            self.files.iter().map(|s| s.len()).sum::<usize>()
-        );
         let hashed = self.make_hash(hash_option);
 
         FileList {
@@ -209,13 +203,6 @@ impl FileList {
             output_list
         };
 
-        println!("bitwise compare");
-        println!(
-            "before: {} group {} candidates",
-            self.files.len(),
-            self.files.iter().map(|s| s.len()).sum::<usize>()
-        );
-
         FileList {
             files: self
                 .files
@@ -227,14 +214,28 @@ impl FileList {
         .remove_unique()
     }
 
-    pub fn print_results(&self) {
-        for same_file_group in &self.files {
-            if same_file_group.len() > 1 {
-                println!();
-                for file_record in same_file_group {
-                    println!("{}", file_record.info.path);
+    pub fn print_results(&self, print_flag: bool) {
+        if print_flag {
+            for same_file_group in &self.files {
+                if same_file_group.len() > 1 {
+                    println!();
+                    for file_record in same_file_group {
+                        println!("{}", file_record.info.path);
+                    }
                 }
             }
         }
+    }
+
+    pub fn print_info(self, info_flag: bool, method: &str) -> Self {
+        if info_flag {
+            println!("Grouping using {:?}", method);
+            println!(
+                "  {} group {} candidates",
+                self.files.len(),
+                self.files.iter().map(|s| s.len()).sum::<usize>()
+            );
+        }
+        self
     }
 }
