@@ -1,7 +1,7 @@
 use rayon::prelude::*;
-use std::io;
 use std::sync::{Arc, Mutex};
 use std::vec::Vec;
+use std::{fs, io};
 
 pub mod file_hash;
 use file_hash::{FileInfo, HashOption};
@@ -225,7 +225,24 @@ impl FileList {
         .remove_unique()
     }
 
-    pub fn print_results(&self, print_flag: bool) {
+    pub fn delete_duplicates(self, delete_flag: bool) {
+        if delete_flag {
+            let delete = |file_group: Vec<FileRecord>| {
+                println!();
+                file_group
+                    .iter()
+                    .skip(1)
+                    .for_each(|frecord| {
+                        println!("Delete {}", &frecord.info.path);
+                        fs::remove_file(&frecord.info.path).unwrap_or(())
+                    });
+            };
+
+            self.files.into_iter().for_each(delete);
+        }
+    }
+
+    pub fn print_results(self, print_flag: bool) -> Self {
         if print_flag {
             for same_file_group in &self.files {
                 if same_file_group.len() > 1 {
@@ -236,6 +253,7 @@ impl FileList {
                 }
             }
         }
+        self
     }
 
     pub fn print_info(self, info_flag: bool, method: &str) -> Self {

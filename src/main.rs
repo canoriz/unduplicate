@@ -1,5 +1,3 @@
-use std::env;
-
 use clap::{App, Arg};
 use walkdir::WalkDir;
 
@@ -104,5 +102,6 @@ fn main() {
         .print_info(flags.info, "fnv hash 64*128 bytes")
         .bitwise_compare()
         .print_info(flags.info, "bitwise")
-        .print_results(flags.list);
+        .print_results(flags.list)
+        .delete_duplicates(flags.delete);
 }
