@@ -7,6 +7,8 @@ Find duplicate files under given paths.
 3. `cargo install --path .`
 
 ## Usage
-Run `unduplicate dir1 dir2 dir3 ...`,
+Run `unduplicate -h` for help message
+
+Run `unduplicate dir1 dir2 dir3 ...` to find duplicate files under `dir1`, `dir2` and `dir3`
 
 and duplicate files will be listed.
