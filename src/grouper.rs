@@ -66,7 +66,7 @@ fn human_size(mut size: f32) -> String {
         }
         size /= 1024.0;
     }
-    return format!("{} {}", size, units[4]);
+    return format!("{:.3} {}", size, units[4]);
 }
 
 impl FileList {
@@ -229,13 +229,10 @@ impl FileList {
         if delete_flag {
             let delete = |file_group: Vec<FileRecord>| {
                 println!();
-                file_group
-                    .iter()
-                    .skip(1)
-                    .for_each(|frecord| {
-                        println!("Delete {}", &frecord.info.path);
-                        fs::remove_file(&frecord.info.path).unwrap_or(())
-                    });
+                file_group.iter().skip(1).for_each(|frecord| {
+                    println!("Delete {}", &frecord.info.path);
+                    fs::remove_file(&frecord.info.path).unwrap_or(())
+                });
             };
 
             self.files.into_iter().for_each(delete);
