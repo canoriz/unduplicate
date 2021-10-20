@@ -124,11 +124,17 @@ impl FileInfo {
                 let mut reader = BufReader::new(f);
 
                 for _ in 0..round {
-                    match reader.read(&mut buffer)? {
-                        128 => (),
-                        x => buffer.iter_mut().skip(x).for_each(|b| *b = 0u8),
-                    }
+                    let file_ends = match reader.read(&mut buffer)? {
+                        128 => false,
+                        x => {
+                            buffer.iter_mut().skip(x).for_each(|b| *b = 0u8);
+                            true
+                        }
+                    };
                     (0..128).for_each(|j| result[j] ^= buffer[j]);
+                    if file_ends {
+                        break;
+                    }
                 }
                 self.hash = HashResult::Head(result);
                 Ok(self.hash)
@@ -139,11 +145,17 @@ impl FileInfo {
                 let mut reader = BufReader::new(f);
 
                 for _ in 0..round {
-                    match reader.read(&mut buffer)? {
-                        128 => (),
-                        x => buffer.iter_mut().skip(x).for_each(|b| *b = 0u8),
-                    }
+                    let file_ends = match reader.read(&mut buffer)? {
+                        128 => false,
+                        x => {
+                            buffer.iter_mut().skip(x).for_each(|b| *b = 0u8);
+                            true
+                        }
+                    };
                     fnv_hasher.write(&buffer);
+                    if file_ends {
+                        break;
+                    }
                 }
                 self.hash = HashResult::Fnv(fnv_hasher.finish());
                 Ok(self.hash)
