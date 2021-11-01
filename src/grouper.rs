@@ -167,7 +167,10 @@ impl FileList {
         .remove_unique()
     }
 
-    pub fn bitwise_compare(self) -> Self {
+    pub fn bitwise_compare(self, bitwise_flag: bool) -> Self {
+        if !bitwise_flag {
+            return self;
+        }
         let split = |file_group: &mut Vec<FileRecord>| {
             let merger = Arc::new(Mutex::new(Merger::new(file_group.len())));
 

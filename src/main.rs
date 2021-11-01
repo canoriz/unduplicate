@@ -11,6 +11,7 @@ struct Flags {
     delete: bool,
     list: bool,
     info: bool,
+    bitwise: bool,
 }
 
 fn main() {
@@ -29,6 +30,12 @@ fn main() {
                 .short("d")
                 .long("delete")
                 .help("Auto delete duplicate files"),
+        )
+        .arg(
+            Arg::with_name("bitwise")
+                .short("b")
+                .long("bitwise")
+                .help("Bitwise compare two file instead of hashing"),
         )
         .arg(
             Arg::with_name("info")
@@ -57,6 +64,11 @@ fn main() {
         flags.info = true;
     }
 
+    if matches.is_present("bitwise") {
+        println!("bitwise!");
+        flags.bitwise = true;
+    }
+
     println!("{:?}", flags);
 
     if let Some(dirs) = matches.values_of("dirs") {
@@ -78,7 +90,6 @@ fn main() {
             .filter(|e| e.metadata().unwrap().len() > 0)
         {
             let f_name = String::from(entry.path().to_string_lossy());
-
             match list.add(&f_name) {
                 Ok(_) => (),
                 Err(_) => continue,
@@ -100,8 +111,10 @@ fn main() {
         .print_info(flags.info, "eigen points")
         .split_by_hash(HashOption::Fnv(64))
         .print_info(flags.info, "fnv hash 64*128 bytes")
-        .bitwise_compare()
-        .print_info(flags.info, "bitwise")
+        .split_by_hash(HashOption::FnvFull)
+        .print_info(flags.info, "fnv full file hash")
+        .bitwise_compare(flags.bitwise)
+        .print_info(flags.info & flags.bitwise, "bitwise")
         .print_results(flags.list)
         .delete_duplicates(flags.delete);
 }

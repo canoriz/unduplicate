@@ -9,6 +9,7 @@ pub enum HashOption {
     Fast(FastSamples),
     Head(u32),
     Fnv(u32),
+    FnvFull,
     Length,
 }
 
@@ -37,6 +38,7 @@ pub enum HashResult {
     Fast([u8; 32]),
     Head([u8; 128]),
     Fnv(u64),
+    FnvFull(u64),
     Length(u64),
 }
 
@@ -58,6 +60,9 @@ impl HashResult {
                 }
             }
             HashResult::Fnv(result) => {
+                write!(&mut res, "{:02x}", result).expect("unable to write");
+            }
+            HashResult::FnvFull(result) => {
                 write!(&mut res, "{:02x}", result).expect("unable to write");
             }
             HashResult::Length(len) => {
@@ -158,6 +163,29 @@ impl FileInfo {
                     }
                 }
                 self.hash = HashResult::Fnv(fnv_hasher.finish());
+                Ok(self.hash)
+            }
+            HashOption::FnvFull => {
+                const BLOCK_SIZE: usize = 4096;
+                let mut buffer = [0u8; BLOCK_SIZE];
+                let mut fnv_hasher = FnvHasher::default();
+                let mut reader = BufReader::new(f);
+                loop {
+                    let file_ends = match reader.read(&mut buffer)? {
+                        BLOCK_SIZE => {
+                            fnv_hasher.write(&buffer);
+                            false
+                        }
+                        x => {
+                            fnv_hasher.write(&buffer[0..x]);
+                            true
+                        }
+                    };
+                    if file_ends {
+                        break;
+                    }
+                }
+                self.hash = HashResult::FnvFull(fnv_hasher.finish());
                 Ok(self.hash)
             }
             HashOption::Length => {
