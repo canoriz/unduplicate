@@ -1,81 +1,39 @@
-use clap::{App, Arg};
+use clap::Parser;
 use walkdir::WalkDir;
 
 mod grouper;
 use grouper::file_hash::{FastSamples, HashOption};
 use grouper::FileList;
 
-// flag options
-#[derive(Default, Debug)]
-struct Flags {
-    delete: bool,
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    #[clap(short, long, value_parser, default_value_t = false)]
     list: bool,
+    #[clap(short, long, value_parser, default_value_t = true)]
     info: bool,
+    #[clap(short, long, value_parser, default_value_t = false)]
     bitwise: bool,
+    #[clap(short, long, value_parser)]
+    delete: bool,
+    #[clap(value_parser)]
+    dirs: Vec<String>,
 }
 
+
 fn main() {
-    let matches = App::new("unduplicate")
-        .version("0.1")
-        .author("yhc")
-        .about("Find duplicate files")
-        .arg(
-            Arg::with_name("list")
-                .short("l")
-                .long("list")
-                .help("List duplicate files"),
-        )
-        .arg(
-            Arg::with_name("delete")
-                .short("d")
-                .long("delete")
-                .help("Auto delete duplicate files"),
-        )
-        .arg(
-            Arg::with_name("bitwise")
-                .short("b")
-                .long("bitwise")
-                .help("Bitwise compare two file instead of hashing"),
-        )
-        .arg(
-            Arg::with_name("info")
-                .short("i")
-                .long("info")
-                .help("Print grouping infomation"),
-        )
-        .arg(Arg::with_name("dirs").help("Directories").multiple(true))
-        .get_matches();
+    let args = Args::parse();
 
-    let mut flags = Flags::default();
-    let dir_list: Vec<_>;
+    println!("{:?}", args);
 
-    if matches.is_present("delete") {
-        println!("delete!");
-        flags.delete = true;
-    }
-
-    if matches.is_present("list") {
-        println!("list!");
-        flags.list = true;
-    }
-
-    if matches.is_present("info") {
-        println!("info!");
-        flags.info = true;
-    }
-
-    if matches.is_present("bitwise") {
-        println!("bitwise!");
-        flags.bitwise = true;
-    }
-
-    println!("{:?}", flags);
-
-    if let Some(dirs) = matches.values_of("dirs") {
-        dir_list = dirs.collect();
-    } else {
-        dir_list = vec!["./"];
-    }
+    let dir_list: Vec<String> = match args.dirs.len() {
+        0 => {
+            vec![String::from("./")]
+        }
+        _ => {
+            args.dirs.iter().map(|x| x.to_string()).collect()
+        }
+    };
 
     //let args: Vec<String> = env::args().skip(1).collect();
 
@@ -98,23 +56,23 @@ fn main() {
     }
 
     list.sort_by_path()
-        .print_info(flags.info, "none")
+        .print_info(args.info, "none")
         .split_by_hash(HashOption::Length)
-        .print_info(flags.info, "length")
+        .print_info(args.info, "length")
         //.split_by_hash(HashOption::Head(1))
         .split_by_hash(HashOption::Head(4))
-        .print_info(flags.info, "head 4*128 bytes")
+        .print_info(args.info, "head 4*128 bytes")
         //.split_by_hash(HashOption::Head(16))
         //.split_by_hash(HashOption::Head(64))
         //.split_by_hash(HashOption::Head(256))
         .split_by_hash(HashOption::Fast(FastSamples::default()))
-        .print_info(flags.info, "eigen points")
+        .print_info(args.info, "eigen points")
         .split_by_hash(HashOption::Fnv(64))
-        .print_info(flags.info, "fnv hash 64*128 bytes")
+        .print_info(args.info, "fnv hash 64*128 bytes")
         .split_by_hash(HashOption::FnvFull)
-        .print_info(flags.info, "fnv full file hash")
-        .bitwise_compare(flags.bitwise)
-        .print_info(flags.info & flags.bitwise, "bitwise")
-        .print_results(flags.list)
-        .delete_duplicates(flags.delete);
+        .print_info(args.info, "fnv full file hash")
+        .bitwise_compare(args.bitwise)
+        .print_info(args.info & args.bitwise, "bitwise")
+        .print_results(args.list)
+        .delete_duplicates(args.delete);
 }
